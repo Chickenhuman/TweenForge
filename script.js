@@ -2,6 +2,7 @@
 let mode = 'drawing'; 
 let usePercent = false;
 let drawnFrames = []; 
+let rawFrames = []; // 원본(거친) 데이터 보존용
 let isRecording = false;
 let recordStartTime = 0;
 
@@ -16,16 +17,16 @@ const STAGE_SIZE = 3000;
 const CENTER_X = STAGE_SIZE / 2;
 const CENTER_Y = STAGE_SIZE / 2;
 
+// DOM 요소 참조
 const timelineSlider = document.getElementById('timeline-slider');
 const timeDisplay = document.getElementById('time-display');
 const btnPlayPause = document.getElementById('btn-play-pause');
 const previewNode = document.getElementById('preview-node');
 
-// [기존 변수들 아래에 추가]
 const btnStop = document.getElementById('btn-stop');
 const drawingPath = document.getElementById('drawing-path');
 
-// [3단계 변경] 노드 좌표 배열 (기본: 시작점, 끝점)
+// 노드 좌표 배열 (기본: 시작점, 끝점)
 let nodes = [
     { x: CENTER_X - 150, y: CENTER_Y }, // A (0번)
     { x: CENTER_X + 150, y: CENTER_Y }  // B (1번)
@@ -37,7 +38,7 @@ let isPlaying = false;
 let animationId = null; 
 let currentProgress = 0; 
 
-// DOM 요소 참조
+// DOM 요소 참조 (계속)
 const scrollContainer = document.getElementById('scroll-container');
 const stageContent = document.getElementById('stage-content');
 const startNode = document.getElementById('start-node');
@@ -56,9 +57,9 @@ const inputPrecision = document.getElementById('input-precision');
 const inputImage = document.getElementById('input-image');
 const btnRemoveImage = document.getElementById('btn-remove-image');
 
-// [수정] 이미지 관련 변수 추가
+// 이미지 관련 변수
 let customImageURL = null; 
-let customImageRatio = 1; // 이미지 가로/세로 비율 (기본 1:1)
+let customImageRatio = 1; 
 
 /* 실행 취소 관련 변수 */
 const MAX_HISTORY = 50; 
@@ -68,8 +69,9 @@ let historyIndex = -1;
 // --- 초기화 함수 (init) ---
 function init() {
     updateLanguage('ko');
-    setMode('drawing');
+    setMode('drawing'); // 이제 에러가 나지 않습니다.
     
+    // 화면 중앙으로 스크롤 이동
     const containerW = scrollContainer.clientWidth;
     const containerH = scrollContainer.clientHeight;
     scrollContainer.scrollTop = CENTER_Y - (containerH / 2);
@@ -81,21 +83,64 @@ function init() {
     renderNodes();
     updateVisuals();
 
+    // 히스토리 초기화
     historyStack = [];
     historyIndex = -1;
     saveState(); 
 }
 
-const originalSetMode = setMode; 
-setMode = function(newMode) {
-    originalSetMode(newMode); 
+// --- 모드 설정 함수 (수정됨) ---
+function setMode(newMode) {
+    mode = newMode;
+    const t = translations[currentLang] || translations['ko'];
+
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${newMode}`).classList.add('active');
+
+    const panel = document.getElementById('panel-keyframe');
+    const svgLayer = document.getElementById('svg-layer');
+    svgLayer.style.display = 'block'; // SVG 항상 보임 (궤적 표시용)
+
+    if (mode === 'drawing') {
+        statusText.textContent = t.msg_draw_guide;
+        panel.classList.add('hidden');          
+        panelDrawing.classList.remove('hidden');
+        
+        // 키프레임 관련 요소 숨김
+        endNode.style.display = 'none';
+        document.querySelectorAll('.dynamic-node').forEach(el => el.style.display = 'none');
+        svgPath.style.display = 'none'; // 파란 곡선 숨김
+        
+        // 드로잉 궤적 보이기
+        if(drawingPath) {
+            drawingPath.style.display = 'block';
+            updateDrawingPath(); 
+        }
+    } else {
+        statusText.textContent = t.msg_key_guide;
+        panel.classList.remove('hidden');       
+        panelDrawing.classList.add('hidden');   
+        
+        // 키프레임 관련 요소 보임
+        endNode.style.display = 'flex';
+        renderNodes();
+        svgPath.style.display = 'block'; // 파란 곡선 보임
+        
+        // 드로잉 궤적 숨김
+        if(drawingPath) {
+            drawingPath.style.display = 'none';
+        }
+    }
+
+    // 재생 상태 초기화
     pause();
     timelineSlider.value = 0;
     previewNode.style.display = 'none';
     timeDisplay.textContent = "0ms / 0ms";
+    generateCode();
 }
 
-// --- 휠 이벤트 ---
+// --- 휠 이벤트 (줌) ---
 scrollContainer.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.metaKey) {
         e.preventDefault(); 
@@ -125,78 +170,16 @@ function applyZoom() {
     }
 }
 
-function setMode(newMode) {
-    mode = newMode;
-    const t = translations[currentLang] || translations['ko'];
-
-    // 탭 활성화 UI
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`tab-${newMode}`).classList.add('active');
-
-    const panel = document.getElementById('panel-keyframe');
-    const svgLayer = document.getElementById('svg-layer');
-
-    // [핵심 1] SVG 레이어는 항상 켜둡니다 (드로잉 궤적도 보여야 하니까요)
-    svgLayer.style.display = 'block';
-
-    if (mode === 'drawing') {
-        statusText.textContent = t.msg_draw_guide;
-        
-        // 패널 전환
-        panel.classList.add('hidden');          
-        panelDrawing.classList.remove('hidden');
-
-        // 키프레임 요소 숨기기
-        endNode.style.display = 'none';
-        document.querySelectorAll('.dynamic-node').forEach(el => el.style.display = 'none');
-        
-        // 키프레임용 파란 곡선 숨기기
-        svgPath.style.display = 'none';
-        
-        // 드로잉 궤적(노란 점선) 보이기 & 초기화
-        if(drawingPath) {
-            drawingPath.style.display = 'block';
-            drawingPath.setAttribute('d', ''); 
-        }
-
-    } else {
-        statusText.textContent = t.msg_key_guide;
-
-        // 패널 전환
-        panel.classList.remove('hidden');       
-        panelDrawing.classList.add('hidden');   
-
-        // 키프레임 요소 보이기
-        endNode.style.display = 'flex';
-        renderNodes(); // 중간 점들 다시 표시
-        
-        // 키프레임용 파란 곡선 보이기
-        svgPath.style.display = 'block';
-        
-        // [핵심 2] 키프레임 모드에서는 드로잉 궤적을 확실히 숨기고 지움
-        if(drawingPath) {
-            drawingPath.style.display = 'none';
-            drawingPath.setAttribute('d', ''); 
-        }
-        
-        drawnFrames = []; 
-    }
-
-    // 타임라인 & 프리뷰 초기화 (공통)
-    pause();
-    timelineSlider.value = 0;
-    previewNode.style.display = 'none';
-    timeDisplay.textContent = "0ms / 0ms";
-    
-    generateCode();
-}
 // --- 노드 관리 및 렌더링 ---
 function renderNodes() {
+    // 기존 동적 노드 제거
     document.querySelectorAll('.dynamic-node').forEach(el => el.remove());
 
+    // 시작점, 끝점 위치 업데이트
     if(nodes.length > 0) applyTransform(startNode, nodes[0]);
     if(nodes.length > 1) applyTransform(endNode, nodes[nodes.length - 1]);
 
+    // 중간 점 생성
     for (let i = 1; i < nodes.length - 1; i++) {
         const el = document.createElement('div');
         el.className = 'node dynamic-node';
@@ -205,7 +188,6 @@ function renderNodes() {
         el.style.borderColor = '#fff';
         el.dataset.index = i; 
         
-        // [수정] 중간 노드에도 이미지 스타일 적용
         if (customImageURL) {
             applyImageStyle(el);
         }
@@ -215,22 +197,16 @@ function renderNodes() {
     }
 }
 
-// [신규] 이미지 스타일 적용 헬퍼 함수
 function applyImageStyle(el) {
     el.style.backgroundImage = `url(${customImageURL})`;
-    
-    // ▼▼▼ [핵심 수정] CSS ID 충돌 방지를 위해 인라인으로 강제 설정 ▼▼▼
     el.style.backgroundSize = "contain"; 
     el.style.backgroundRepeat = "no-repeat";
     el.style.backgroundPosition = "center";
-    // ▲▲▲ ---------------------------------------------------- ▲▲▲
-
     el.textContent = ""; 
     el.style.border = "none";
     el.style.backgroundColor = "transparent";
     el.style.borderRadius = "4px"; 
     
-    // 이미지 비율에 맞춰 크기 조절
     const baseSize = 80; 
     if (customImageRatio >= 1) {
         el.style.width = `${baseSize}px`;
@@ -241,14 +217,12 @@ function applyImageStyle(el) {
     }
 }
 
-
-// [신규] 노드 스타일 초기화 (이미지 삭제 시)
 function resetNodeStyle(el) {
     el.style.backgroundImage = "none";
     el.style.border = "";
     el.style.backgroundColor = "";
-    el.style.borderRadius = ""; // CSS 클래스(50%)로 복귀
-    el.style.width = "";        // CSS 클래스(40px)로 복귀
+    el.style.borderRadius = ""; 
+    el.style.width = "";       
     el.style.height = "";
     
     const t = translations[currentLang] || translations['ko'];
@@ -292,6 +266,7 @@ function updateVisuals() {
         if (nodes[idx]) applyTransform(el, nodes[idx]);
     });
 
+    // 곡선 그리기
     let d = `M ${nodes[0].x + 20} ${nodes[0].y + 20}`;
     const steps = 100; 
     for (let i = 0; i <= steps; i++) {
@@ -308,7 +283,6 @@ function applyTransform(el, pos) {
     if (!el.classList.contains('dynamic-node')) {
         transformStr += ` rotate(${currentRotate}deg) scale(${currentScale})`;
         
-        // [수정] A, B, 유령 노드 이미지 적용 로직 통합
         if (customImageURL) {
             applyImageStyle(el);
         } else {
@@ -323,8 +297,9 @@ let dragTarget = null;
 let dragOffset = { x: 0, y: 0 };
 
 stageContent.addEventListener('mousedown', (e) => {
+    // 기본 드래그 방지
     e.preventDefault(); 
-    // 이미지 적용 시 클릭 영역이 커질 수 있으므로 closest 사용 권장하지만, 현재 구조 유지
+    
     if (e.target.classList.contains('node')) {
         dragTarget = e.target;
         let dragIndex = -1; 
@@ -345,7 +320,9 @@ stageContent.addEventListener('mousedown', (e) => {
             if (mode === 'drawing' && dragTarget === startNode) {
                 isRecording = true;
                 drawnFrames = [];
-		drawingPath.setAttribute('d', ''); // [추가] 기존 궤적 지우기
+                rawFrames = []; // 원본 데이터 초기화
+                
+                if(drawingPath) drawingPath.setAttribute('d', ''); 
                 recordStartTime = Date.now();
                 const t = translations[currentLang] || translations['ko'];
                 statusText.textContent = t.status_drawing;
@@ -376,9 +353,10 @@ window.addEventListener('mousemove', (e) => {
             nodes[0].y = newY;
         }
     }
-if (mode === 'drawing' && isRecording) {
+
+    if (mode === 'drawing' && isRecording) {
         recordFrame();
-        updateDrawingPath(); // [추가] 실시간 궤적 그리기
+        updateDrawingPath();
     }
     
     updateVisuals();
@@ -391,10 +369,10 @@ window.addEventListener('mouseup', () => {
         const t = translations[currentLang] || translations['ko'];
         statusText.textContent = t.status_done;
         statusText.style.color = "#00d2ff";
-        const smoothVal = parseInt(inputSmoothing.value) || 5; 
-        drawnFrames = smoothPath(drawnFrames, smoothVal); 
-        generateCode();
-        updatePreview(0); 
+        
+        // 마우스를 뗄 때는 실시간 보정 함수를 한 번 호출해서 확정
+        applySmoothing(); 
+        
         changed = true; 
     } else if (mode === 'keyframe' && dragTarget) {
         generateCode();
@@ -403,6 +381,26 @@ window.addEventListener('mouseup', () => {
     }
     dragTarget = null;
     if (changed) saveState();
+});
+
+// [신규] 실시간 보정 적용 함수
+function applySmoothing() {
+    if (rawFrames.length === 0) return;
+
+    const smoothVal = parseInt(inputSmoothing.value) || 5; 
+    // 원본 데이터를 복사해서 보정 처리
+    drawnFrames = smoothPath(JSON.parse(JSON.stringify(rawFrames)), smoothVal); 
+    
+    updateDrawingPath();
+    generateCode();
+    updatePreview(0); 
+}
+
+// [신규] 슬라이더 움직일 때 실시간 반영
+inputSmoothing.addEventListener('input', () => {
+    if (mode === 'drawing' && rawFrames.length > 0) {
+        applySmoothing();
+    }
 });
 
 // --- 스플라인 알고리즘 ---
@@ -434,7 +432,11 @@ function catmullRom(t, p0, p1, p2, p3) {
 
 function recordFrame() {
     const t = Date.now() - recordStartTime;
-    drawnFrames.push({ t, x: nodes[0].x, y: nodes[0].y, r: currentRotate, s: currentScale });
+    const frame = { t, x: nodes[0].x, y: nodes[0].y, r: currentRotate, s: currentScale };
+    
+    // 원본과 표시용 데이터 양쪽에 저장
+    rawFrames.push(frame);
+    drawnFrames.push(frame);
 }
 
 // --- 코드 생성기 ---
@@ -557,7 +559,6 @@ function updatePreview(progress) {
     const state = getInterpolatedState(progress);
     if (!state) return;
     
-    // [수정] 프리뷰 노드에도 이미지 스타일 적용 필요
     if (customImageURL) {
         applyImageStyle(previewNode);
     } else {
@@ -614,21 +615,19 @@ function pause() {
 
 function updateDrawingPath() {
     if (drawnFrames.length < 2) return;
-    
-    // drawnFrames 데이터를 SVG path 문자열로 변환
     let d = `M ${drawnFrames[0].x + 20} ${drawnFrames[0].y + 20}`;
-    
     for (let i = 1; i < drawnFrames.length; i++) {
         d += ` L ${drawnFrames[i].x + 20} ${drawnFrames[i].y + 20}`;
     }
-    
     drawingPath.setAttribute('d', d);
 }
+
 function stop() {
-    pause(); // 일시정지
-    timelineSlider.value = 0; // 처음으로 되감기
-    updatePreview(0); // 화면 갱신
+    pause(); 
+    timelineSlider.value = 0; 
+    updatePreview(0); 
 }
+
 // --- 이벤트 리스너 ---
 btnStop.addEventListener('click', stop);
 
@@ -638,13 +637,11 @@ inputImage.addEventListener('change', (e) => {
         const reader = new FileReader();
         reader.onload = (event) => {
             customImageURL = event.target.result;
-            
-            // [수정] 이미지 비율 계산
             const img = new Image();
             img.onload = () => {
                 customImageRatio = img.width / img.height;
                 btnRemoveImage.style.display = 'block';
-                renderNodes(); // 노드 재생성 (스타일 적용을 위해)
+                renderNodes(); 
                 updateVisuals(); 
             };
             img.src = customImageURL;
@@ -699,31 +696,21 @@ btnUnit.addEventListener('click', (e) => {
 document.getElementById('btn-reset').addEventListener('click', () => {
     init(); 
     drawnFrames = []; 
+    rawFrames = [];
     codeArea.textContent = "// Reset";
 });
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
 window.addEventListener('keydown', (e) => {
-    // 입력창(input, textarea) 사용 중일 때는 무시
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-    // 스페이스바: 재생/일시정지
     if (e.code === 'Space') {
-        e.preventDefault(); // 스크롤 방지
+        e.preventDefault(); 
         togglePlay();
     }
-    
-    // Ctrl + Z: Undo
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        if (e.shiftKey) {
-            redo(); 
-        } else {
-            undo(); 
-        }
+        if (e.shiftKey) redo(); else undo();
     }
-
-    // Ctrl + Y: Redo
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         redo();
@@ -781,6 +768,7 @@ function saveState() {
         mode: mode,
         nodes: JSON.parse(JSON.stringify(nodes)),
         drawnFrames: JSON.parse(JSON.stringify(drawnFrames)),
+        rawFrames: JSON.parse(JSON.stringify(rawFrames)), 
         rotate: currentRotate,
         scale: currentScale
     };
@@ -801,15 +789,20 @@ function restoreState(state) {
     if (!state) return;
     nodes = JSON.parse(JSON.stringify(state.nodes));
     drawnFrames = JSON.parse(JSON.stringify(state.drawnFrames));
+    rawFrames = state.rawFrames ? JSON.parse(JSON.stringify(state.rawFrames)) : []; 
+    
     currentRotate = state.rotate;
     currentScale = state.scale;
     if (mode !== state.mode) {
         setMode(state.mode); 
         nodes = JSON.parse(JSON.stringify(state.nodes));
         drawnFrames = JSON.parse(JSON.stringify(state.drawnFrames));
+        rawFrames = state.rawFrames ? JSON.parse(JSON.stringify(state.rawFrames)) : [];
     }
     document.getElementById('input-rotate').value = currentRotate;
     document.getElementById('input-scale').value = currentScale;
+    
+    updateDrawingPath();
     renderNodes();
     updateVisuals();
     generateCode();
