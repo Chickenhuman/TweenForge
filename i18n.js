@@ -1,6 +1,6 @@
 const translations = {
     ko: {
-        title: "애니메이션 생성기",
+        title: "TweenForge",
         tab_drawing: "🖐️ 드로잉",
         tab_keyframe: "📍 키프레임 (곡선)",
         status_ready: "준비 완료",
@@ -20,7 +20,7 @@ const translations = {
         node_end: "B"
     },
     en: {
-        // 추후 번역 추가 예정
+        // 추후 번역 추가 예정. 최종 배포 전 업데이트 예정.
         title: "Animation Tool",
         // ... (나머지 키는 한국어 키와 동일하게 맞추면 됨)
     },
@@ -45,10 +45,9 @@ function updateLanguage(lang) {
     });
 
     // 특수 요소들 업데이트
-    const startNode = document.getElementById('start-node');
-    const endNode = document.getElementById('end-node');
-    if(startNode) startNode.textContent = t.node_start || "A";
-    if(endNode) endNode.textContent = t.node_end || "B";
+if(startNode && !customImageURL) startNode.textContent = t.node_start || "A";
+    if(endNode && !customImageURL) endNode.textContent = t.node_end || "B";
+    if(previewNode && !customImageURL) previewNode.textContent = "👻";
     
     // 상태 메시지 갱신을 위해 window 객체에 이벤트 발송 (선택사항) 또는 전역 변수 활용
 }

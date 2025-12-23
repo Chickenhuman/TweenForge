@@ -72,11 +72,10 @@ button.secondary:hover { background: #666; }
     /* ▲▲▲ --------------------------------------- ▲▲▲ */
 
     /* 기존 스타일 유지 */
-    background: rgba(50, 50, 50, 0.3); 
-    border: 2px dashed rgba(255, 255, 255, 0.5);
-    color: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(2px);
-    transition: border-color 0.2s; 
+background-size: contain;      /* 이미지 꽉 차게 */
+    background-repeat: no-repeat;  /* 반복 없음 */
+    background-position: center;   /* 중앙 정렬 */
+    overflow: hidden;              /* 이미지가 튀어나가지 않게 */
 }
 .node:active { cursor: grabbing; border-color: #fff; }
 
@@ -264,4 +263,58 @@ button.secondary:hover { background: #666; }
     pointer-events: none; /* 클릭 안되게 */
     box-shadow: 0 0 15px rgba(255, 235, 59, 0.5);
     display: none; /* 기본 숨김 */
+}
+
+/* ▼▼▼ [추가] 드로잉 궤적 스타일 ▼▼▼ */
+#drawing-path {
+    fill: none;
+    stroke: #ffeb3b; /* 노란색 */
+    stroke-width: 2;
+    stroke-dasharray: 5, 5; /* 점선 */
+    opacity: 0.8;
+    pointer-events: none;
+}
+
+/* ▼▼▼ [수정] 타임라인 컨트롤 UI ▼▼▼ */
+#timeline-container {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* 간격 넓힘 */
+    padding: 10px 15px;
+    background: #222;
+    border-bottom: 1px solid #444;
+}
+
+.timeline-controls {
+    display: flex;
+    gap: 5px;
+}
+
+#timeline-container .icon-btn {
+    width: 32px; 
+    height: 32px;
+    border: 1px solid #555;
+    background: #333;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+#timeline-container .icon-btn:hover {
+    background: #444;
+    border-color: #777;
+}
+
+/* 슬라이더 스타일 보정 */
+#timeline-slider {
+    flex: 1; 
+    height: 6px;
+    background: #444;
+    border-radius: 3px;
+    outline: none;
+    border: none; /* 기존 border 제거 */
 }
