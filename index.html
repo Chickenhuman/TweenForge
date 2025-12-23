@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TweenForge</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="header-row">
+            <h2 data-i18n="title">Animation Tool</h2>
+            <select id="lang-select" class="lang-select">
+                <option value="ko">한국어</option>
+                <option value="en">English</option>
+                <option value="ja">日本語</option>
+            </select>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-btn active" id="tab-drawing" onclick="setMode('drawing')" data-i18n="tab_drawing">🖐️ 드로잉</button>
+            <button class="tab-btn" id="tab-keyframe" onclick="setMode('keyframe')" data-i18n="tab_keyframe">📍 키프레임</button>
+        </div>
+
+        <div class="control-group">
+            <div class="status" id="status-text">...</div>
+        </div>
+
+        <div class="control-group">
+            <label data-i18n="lbl_rotate">회전</label>
+            <input type="range" id="input-rotate" min="0" max="360" value="0">
+            <label style="margin-top:10px" data-i18n="lbl_scale">크기</label>
+            <input type="range" id="input-scale" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+
+ <div class="control-group hidden" id="panel-keyframe">
+            <label data-i18n="lbl_duration">이동 시간 (ms)</label>
+            <input type="number" id="input-duration" value="1000" step="100">
+            
+            <label style="margin-top:10px" data-i18n="lbl_easing">속도 변화</label>
+            <select id="input-easing">
+                <option value="linear">Linear</option>
+                <option value="ease">Ease</option>
+                <option value="ease-in">Ease-In</option>
+                <option value="ease-out">Ease-Out</option>
+                <option value="ease-in-out">Ease-In-Out</option>
+            </select>
+            
+            <div style="margin-top: 10px; display: flex; gap: 5px;">
+                <button class="secondary" onclick="addNode()">+ 점 추가</button>
+                <button class="secondary" onclick="removeNode()">- 점 삭제</button>
+            </div>
+            </div>
+
+        <div class="control-group" id="panel-drawing">
+            <label>보정 강도 (Smoothing)</label>
+            <input type="range" id="input-smoothing" min="1" max="20" value="5" step="1">
+            <div style="font-size:11px; color:#aaa; text-align:right; margin-top:2px;">1(원본) ~ 20(부드럽게)</div>
+        </div>
+        <div class="control-group">
+            <button id="btn-play" data-i18n="btn_play">▶ 재생</button>
+            <button class="secondary" id="btn-reset" data-i18n="btn_reset">↺ 초기화</button>
+        </div>
+
+ <div class="control-group">
+            <label data-i18n="lbl_unit">출력 단위</label>
+            <button class="secondary" id="btn-unit">PX</button>
+        </div>
+
+        <div class="control-group">
+            <label>소수점 자릿수 (Precision)</label>
+            <select id="input-precision">
+                <option value="0">0 (정수)</option>
+                <option value="1">1 (0.1)</option>
+                <option value="2" selected>2 (0.01)</option>
+                <option value="3">3 (0.001)</option>
+                <option value="4">4 (0.0001)</option>
+                <option value="5">5 (High)</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>출력 언어 (Format)</label>
+            <select id="output-lang">
+
+
+                <option value="js">JavaScript (WAAPI)</option>
+                <option value="css">CSS (@keyframes)</option>
+                <option value="phaser">Phaser (Tweens)</option> 
+                <option value="unity">Unity (C#)</option>
+                <option value="python">Python (Pygame)</option>
+                <option value="json">JSON (Raw Data)</option>
+            </select>
+        </div>
+    </div> 
+
+    <div class="main-area">
+        <div id="scroll-container">
+            <div id="stage-content">
+                
+                <div id="zoom-indicator">100%</div>
+
+                <div id="grid"></div>
+                <div class="axis-x"></div>
+                <div class="axis-y"></div>
+
+                <svg id="svg-layer">
+                    <path id="path-curve" d="" />
+                    <line id="guide1" class="guide-line" x1="0" y1="0" x2="0" y2="0" />
+                    <line id="guide2" class="guide-line" x1="0" y1="0" x2="0" y2="0" />
+                </svg>
+
+                <div id="end-node" class="node">B</div>
+                <div id="start-node" class="node">A</div>
+                
+                <div id="preview-node" class="node" style="display:none;">👻</div>
+            </div>
+        </div>
+
+        <div id="bottom-panel">
+            <div class="panel-header">
+                <span class="panel-title">Timeline & Code</span>
+                <div class="panel-controls">
+                    <button id="btn-copy-code" class="icon-btn" title="코드 복사">📋 Copy</button>
+                    <button id="btn-toggle-panel" class="icon-btn" title="접기/펼치기">▼</button>
+                </div>
+            </div>
+
+            <div id="timeline-container">
+                <button id="btn-play-pause" class="icon-btn">▶</button>
+                <input type="range" id="timeline-slider" min="0" max="100" value="0" step="0.1">
+                <span id="time-display">0ms / 0ms</span>
+            </div>
+            
+            <div id="code-area" spellcheck="false"></div>
+        </div>
+    </div>
+
+    <script src="i18n.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

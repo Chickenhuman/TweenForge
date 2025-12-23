@@ -1,0 +1,267 @@
+body { font-family: 'Segoe UI', sans-serif; background: #222; color: #fff; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+
+/* 사이드바 */
+.sidebar { width: 340px; background: #333; padding: 20px; display: flex; flex-direction: column; gap: 15px; border-right: 1px solid #444; box-shadow: 2px 0 10px rgba(0,0,0,0.3); z-index: 10; overflow-y: auto; }
+
+.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+h2 { margin: 0; font-size: 18px; color: #00d2ff; }
+.lang-select { background: #222; color: #fff; border: 1px solid #555; padding: 3px; border-radius: 4px; font-size: 12px; }
+
+.tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+.tab-btn { flex: 1; padding: 10px; background: #444; border: none; color: #aaa; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+.tab-btn.active { background: #00d2ff; color: #000; }
+
+.control-group { background: #444; padding: 12px; border-radius: 8px; margin-bottom: 5px;}
+.control-group.hidden { display: none; }
+
+label { display: block; font-size: 12px; margin-bottom: 5px; color: #ccc; }
+input[type="range"], select, input[type="number"] { width: 100%; cursor: pointer; box-sizing: border-box; padding: 5px; background: #222; border: 1px solid #555; color: #fff; border-radius: 3px;}
+
+button { background: #00d2ff; color: #000; border: none; padding: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; font-size: 14px; }
+button:hover { background: #66e0ff; }
+button.secondary { background: #555; color: #fff; margin-top: 5px; }
+button.secondary:hover { background: #666; }
+
+.status { font-size: 12px; color: #ffeb3b; min-height: 15px; text-align: center; margin-bottom: 5px; }
+
+/* 메인 영역 */
+.main-area { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+
+/* 스크롤 컨테이너 */
+#scroll-container {
+    flex: 1;
+    background: #111; 
+    overflow: auto; 
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: #555 #222;
+}
+
+/* 실제 캔버스 */
+#stage-content {
+    width: 3000px;
+    height: 3000px;
+    background: #2a2a2a;
+    position: relative;
+    transform-origin: 0 0; /* 줌 기준점 */
+}
+
+/* 그리드 및 가이드 */
+#grid { 
+    position: absolute; width: 100%; height: 100%; 
+    background-image: linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; 
+}
+.axis-x { position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: rgba(255, 0, 0, 0.5); pointer-events: none; }
+.axis-y { position: absolute; left: 50%; top: 0; height: 100%; width: 1px; background: rgba(255, 0, 0, 0.5); pointer-events: none; }
+
+/* 노드 스타일 */
+/* --- [수정] 노드 공통 스타일 --- */
+.node {
+    width: 40px; height: 40px; border-radius: 50%;
+    position: absolute; left: 0; top: 0; 
+    transform-origin: center center;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 12px; font-weight: bold; 
+    cursor: grab; z-index: 10;
+    
+    /* ▼▼▼ [추가할 코드] 텍스트 선택 및 드래그 방지 ▼▼▼ */
+    user-select: none;           /* 텍스트 선택 방지 (표준) */
+    -webkit-user-select: none;   /* 사파리/크롬 등 호환성 */
+    -webkit-user-drag: none;     /* 이미지가 있을 경우 고스트 드래그 방지 */
+    /* ▲▲▲ --------------------------------------- ▲▲▲ */
+
+    /* 기존 스타일 유지 */
+    background: rgba(50, 50, 50, 0.3); 
+    border: 2px dashed rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(2px);
+    transition: border-color 0.2s; 
+}
+.node:active { cursor: grabbing; border-color: #fff; }
+
+
+/* --- [수정] 시작점 (A) - 붉은 계열 마커 --- */
+#start-node { 
+    border-color: #ff4757; 
+    color: #ff4757;
+    background: rgba(255, 71, 87, 0.1); 
+}
+
+/* --- [수정] 도착점 (B) - 푸른 계열 마커 --- */
+#end-node { 
+    border-color: #1e90ff; 
+    color: #1e90ff;
+    background: rgba(30, 144, 255, 0.1); 
+}
+
+/* --- [신규] 고스트 (실제 움직이는 애) 스타일 --- */
+#ghost-node {
+    /* [추가된 부분] 잃어버린 모양을 다시 정의해줍니다 */
+    width: 40px; 
+    height: 40px; 
+    border-radius: 50%;
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    
+    /* 기존 스타일 유지 */
+    background: #ff4757 !important; 
+    border: 2px solid #fff !important; 
+    color: #fff !important;
+    opacity: 1 !important; 
+    box-shadow: 0 0 20px rgba(255, 71, 87, 0.8); 
+    z-index: 100; 
+    pointer-events: none; 
+}
+
+#control-node {
+    width: 20px; height: 20px; background: #2ed573; 
+    border: 2px solid #fff; z-index: 11;
+    box-shadow: 0 0 10px rgba(46, 213, 115, 0.6);
+    display: none;
+}
+
+#svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+#path-curve { fill: none; stroke: #00d2ff; stroke-width: 2; stroke-dasharray: 5,5; }
+.guide-line { stroke: #666; stroke-width: 1; stroke-dasharray: 2,2; }
+
+/* --- [수정] 하단 패널 스타일 --- */
+#bottom-panel {
+    display: flex;
+    flex-direction: column;
+    background: #1a1a1a;
+    border-top: 1px solid #444;
+    transition: height 0.3s ease; 
+    height: 200px; 
+    flex-shrink: 0; 
+}
+
+#bottom-panel.collapsed {
+    height: 35px; 
+}
+
+.panel-header {
+    height: 35px;
+    background: #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    border-bottom: 1px solid #222;
+    user-select: none;
+}
+
+.panel-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: #ccc;
+}
+
+.panel-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.icon-btn {
+    background: transparent;
+    border: 1px solid #555;
+    color: #ccc;
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    width: auto; 
+    height: 24px;
+}
+.icon-btn:hover {
+    background: #555;
+    color: #fff;
+}
+
+#code-area {
+    flex: 1; 
+    padding: 15px;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    color: #0f0;
+    overflow-y: auto; 
+    white-space: pre;
+    background: #111;
+    resize: vertical; 
+    overflow: auto; 
+}
+
+#zoom-indicator {
+    position: fixed;
+    bottom: 200px; 
+    right: 30px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    pointer-events: none; 
+    z-index: 100;
+}
+
+/* style.css 맨 아래에 추가 */
+
+/* --- [신규] 타임라인 UI 스타일 --- */
+#timeline-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: #222;
+    border-bottom: 1px solid #444;
+}
+
+#timeline-slider {
+    flex: 1; /* 남은 공간 모두 차지 */
+    height: 6px;
+    -webkit-appearance: none;
+    background: #444;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+#timeline-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    background: #00d2ff;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 0 5px rgba(0, 210, 255, 0.8);
+}
+
+#time-display {
+    font-size: 11px;
+    color: #aaa;
+    width: 80px;
+    text-align: right;
+    font-family: monospace;
+}
+
+#btn-play-pause {
+    width: 30px; height: 30px;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 14px;
+    background: #333;
+    border: 1px solid #555;
+    color: #fff;
+}
+#btn-play-pause:hover { background: #444; }
+
+/* --- [신규] 프리뷰 노드 (스크러버 움직일 때 보이는 애) --- */
+#preview-node {
+    background: rgba(255, 235, 59, 0.2) !important; /* 노란색 계열 */
+    border: 2px solid #ffeb3b !important;
+    color: #ffeb3b !important;
+    z-index: 50 !important;
+    pointer-events: none; /* 클릭 안되게 */
+    box-shadow: 0 0 15px rgba(255, 235, 59, 0.5);
+    display: none; /* 기본 숨김 */
+}
